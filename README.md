@@ -59,6 +59,12 @@ docker run --rm -p 8080:80 openscad-playground
 # open http://localhost:8080/
 ```
 
+Or use the example [`docker-compose.yml`](./docker-compose.yml):
+
+```bash
+docker compose up -d
+```
+
 Released images are published to the GitHub Container Registry as
 `ghcr.io/<owner>/openscad-playground`:
 
