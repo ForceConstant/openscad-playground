@@ -140,7 +140,7 @@ setting `window.__OPENSCAD_FILES_API__` before the bundle loads.
 | `ALLOWED_EXT` | `.scad,.json` | extensions exposed (comma-separated) |
 | `MAX_BYTES` | `5242880` | maximum upload size |
 
-Served image: `ghcr.io/<owner>/openscad-files-api`.
+Served image: `ghcr.io/<owner>/openscad-playground-files-api`.
 
 ## Building
 

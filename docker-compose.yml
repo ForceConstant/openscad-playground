@@ -27,7 +27,7 @@ services:
     # A healthcheck is defined in the image and is picked up automatically.
 
   files-api:
-    image: ghcr.io/forceconstant/openscad-files-api:latest
+    image: ghcr.io/forceconstant/openscad-playground-files-api:latest
     # Build locally from this repository instead of pulling:
     # build:
     #   context: .
