@@ -38,7 +38,13 @@ export function spawnOpenSCAD(
   }
     
   return AbortablePromise<OpenSCADInvocationResults>((resolve: (result: OpenSCADInvocationResults) => void, reject: (error: any) => void) => {
-    worker = new Worker('./openscad-worker.js');//, { type: 'module' });
+    // Stamp the worker URL with the build version so each release fetches a
+    // fresh worker. A worker script fetch is not refreshed by a normal page
+    // reload (nor by the hard-reload cache bypass in Chrome), so without this
+    // a browser can keep running a *previous* worker build after the app
+    // bundle itself has updated — which silently defeats fixes to the worker
+    // (e.g. the OpenSCAD FS write path) until the site data is cleared.
+    worker = new Worker(`./openscad-worker.js?v=${process.env.APP_VERSION ?? 'dev'}`);//, { type: 'module' });
     rejection = reject;
     worker.onmessage = (e: MessageEvent<OpenSCADInvocationCallback>) => {
       if ('result' in e.data) {
