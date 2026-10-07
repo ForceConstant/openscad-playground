@@ -5,6 +5,9 @@ import { MultiLayoutComponentId, SingleLayoutComponentId, State, StatePersister 
 import { VALID_EXPORT_FORMATS_2D, VALID_EXPORT_FORMATS_3D } from './formats.ts';
 import { bubbleUpDeepMutations } from "./deep-mutate.ts";
 import { downloadUrl, fetchSource, formatBytes, formatMillis, readFileAsDataURL } from '../utils.ts'
+import { serverDir, ServerFileSync } from '../fs/server-sync.ts';
+import { join } from '../fs/filesystem.ts';
+import { defaultSourcePath } from './initial-state.ts';
 
 import JSZip from 'jszip';
 import { ProcessStreams } from "../runner/openscad-runner.ts";
@@ -18,7 +21,8 @@ const githubRx = /^https:\/\/github.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/;
 
 export class Model {
   constructor(private fs: FS, public state: State, private setStateCallback?: (state: State) => void, 
-    private statePersister?: StatePersister) {
+    private statePersister?: StatePersister,
+    private serverSync?: ServerFileSync) {
   }
   
   init() {
@@ -159,6 +163,7 @@ export class Model {
   set source(source: string) {
     if (this.mutate(s => s.params.sources = s.params.sources.map(src => src.path === s.params.activePath ? {path: src.path, content: source} : src))) {
       this.processSource();
+      this.scheduleAutosave();
     }
   }
 
@@ -326,6 +331,101 @@ export class Model {
         const file = new File([blob], 'project.zip');
         downloadUrl(URL.createObjectURL(file), file.name);
       });
+    }
+  }
+
+  // -------------------------------------------------------------------
+  // Server-side model files
+  // -------------------------------------------------------------------
+
+  /** Whether the optional server files API is wired up. */
+  get serverFilesEnabled(): boolean {
+    return !!this.serverSync;
+  }
+
+  /** Server file name for a path under /server, or null if not a server file. */
+  serverFileFor(path: string): string | null {
+    if (!this.serverSync || !path.startsWith(serverDir + '/')) return null;
+    return path.slice(serverDir.length + 1);
+  }
+
+  private readSourceFromFS(path: string): string | null {
+    try {
+      return new TextDecoder('utf-8').decode(this.fs.readFileSync(path));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  private autosaveTimer?: any;
+
+  /** Debounced write-back of the active server file on edit. */
+  private scheduleAutosave(): void {
+    if (!this.serverFileFor(this.state.params.activePath)) return;
+    clearTimeout(this.autosaveTimer);
+    this.autosaveTimer = setTimeout(() => {
+      this.saveToServer().catch(e => console.error('Autosave failed:', e));
+    }, 1200);
+  }
+
+  /** Write a server file back to the server (defaults to the active file). */
+  async saveToServer(path: string = this.state.params.activePath): Promise<void> {
+    const name = this.serverFileFor(path);
+    if (!name || !this.serverSync) return;
+    const content = this.state.params.sources.find(s => s.path === path)?.content ?? '';
+    await this.serverSync.push(name, content);
+  }
+
+  /**
+   * Save the active buffer to the server. If it is not a server file yet it is
+   * uploaded under `name` (or its current basename) and opened from /server.
+   */
+  async saveActiveToServer(name?: string): Promise<void> {
+    const path = this.state.params.activePath;
+    const existing = this.serverFileFor(path);
+    if (existing) {
+      await this.saveToServer(path);
+      return;
+    }
+    if (!this.serverSync) return;
+    let file = name || path.split('/').pop() || 'model.scad';
+    if (!file.toLowerCase().endsWith('.scad')) file += '.scad';
+    const content = this.state.params.sources.find(s => s.path === path)?.content ?? '';
+    await this.serverSync.push(file, content);
+    this.openFile(join(serverDir, file));
+  }
+
+  /** Create a new (empty) server file and open it. */
+  async createServerFile(name: string): Promise<string> {
+    let file = name.trim();
+    if (!file.toLowerCase().endsWith('.scad')) file += '.scad';
+    const path = join(serverDir, file);
+    if (this.serverSync) {
+      await this.serverSync.push(file, `// ${file}\n\n`);
+    }
+    this.openFile(path);
+    return path;
+  }
+
+  /** Delete a server file; falls back to the default project if it was open. */
+  async deleteServerFile(path: string = this.state.params.activePath): Promise<void> {
+    const name = this.serverFileFor(path);
+    if (!name || !this.serverSync) return;
+    await this.serverSync.remove(name);
+    if (this.state.params.activePath === path) this.openFile(defaultSourcePath);
+  }
+
+  /** Called when the mirrored server folder changed (e.g. by another client). */
+  onServerFilesChanged(): void {
+    const path = this.state.params.activePath;
+    if (!this.serverFileFor(path)) return;
+    const disk = this.readSourceFromFS(path);
+    const current = this.state.params.sources.find(s => s.path === path)?.content;
+    if (disk != null && disk !== current) {
+      this.mutate(s => {
+        s.params.sources = s.params.sources.map(x => x.path === path ? {path, content: disk} : x);
+      });
+      this.processSource();
     }
   }
 

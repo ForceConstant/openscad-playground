@@ -1,8 +1,9 @@
 // Portions of this file are Copyright 2021 Google LLC, and licensed under GPL2+. See COPYING.
 
-import React, { CSSProperties, useEffect, useState } from 'react';
+import React, { CSSProperties, useEffect, useReducer, useRef, useState } from 'react';
 import {MultiLayoutComponentId, State, StatePersister} from '../state/app-state'
 import { Model } from '../state/model';
+import { ServerFileSync } from '../fs/server-sync';
 import EditorPanel from './EditorPanel';
 import ViewerPanel from './ViewerPanel';
 import Footer from './Footer';
@@ -12,10 +13,30 @@ import { ConfirmDialog } from 'primereact/confirmdialog';
 import CustomizerPanel from './CustomizerPanel';
 
 
-export function App({initialState, statePersister, fs}: {initialState: State, statePersister: StatePersister, fs: FS}) {
+export function App({initialState, statePersister, fs, serverSync}: {initialState: State, statePersister: StatePersister, fs: FS, serverSync?: ServerFileSync}) {
   const [state, setState] = useState(initialState);
-  
-  const model = new Model(fs, state, setState, statePersister);
+
+  const model = new Model(fs, state, setState, statePersister, serverSync);
+
+  // Re-render when the mirrored server folder changes (files added, removed or
+  // refreshed by another client) so the file picker stays in sync.
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+  const modelRef = useRef(model);
+  modelRef.current = model;
+  useEffect(() => {
+    if (!serverSync) return;
+    return serverSync.onChange(() => {
+      modelRef.current.onServerFilesChanged();
+      forceUpdate();
+    });
+  }, [serverSync]);
+
+  useEffect(() => {
+    // Poll for remote changes; the actively edited file is never overwritten.
+    serverSync?.startPolling(() => modelRef.current.state.params.activePath);
+    return () => serverSync?.stopPolling();
+  }, [serverSync]);
+
   useEffect(() => model.init());
 
   useEffect(() => {

@@ -88,6 +88,59 @@ Stable tags publish `0.2.0`, `0.2`, `0` and `latest`; pre-release tags such as
 `v0.2.0-rc.1` are published as GitHub pre-releases and never move `latest`.
 See [`.github/workflows/release.yml`](./.github/workflows/release.yml).
 
+## Server-side model files (optional)
+
+The playground is a static, browser-only app by default: files live in the
+browser (in memory or `localStorage`) and sharing is done with URL fragments.
+
+This fork adds an **optional server-side file store**, so that:
+
+* the file dropdown lists every model in a shared server folder;
+* a file added by an agent (or anyone) shows up for **every** open browser,
+  no matter which host it runs on;
+* edits are saved back to the server folder.
+
+It is two pieces:
+
+| Piece | What it is |
+| --- | --- |
+| `files-api` | a tiny, dependency-free Node service that serves a folder over HTTP (`GET`/`PUT`/`DELETE /api/files/...`) |
+| client sync | `src/fs/server-sync.ts` mirrors that folder into the in-browser filesystem (so the picker shows it) and pushes edits back |
+
+### Running it
+
+Use [`docker-compose.yml`](./docker-compose.yml), which starts both services and
+mounts a host folder for the models:
+
+```bash
+mkdir -p ./models && sudo chown 1000:1000 ./models   # writable by the `node` user
+docker compose up -d
+# open http://localhost:8080/
+```
+
+Then:
+
+* every `.scad` file in `./models` appears in the file dropdown (under a
+  `server` folder);
+* **Ctrl/Cmd+S** (or the cloud button) saves the open file back to `./models`;
+* **New file** / **Delete current file** in the editor menu manage server files;
+* other open browsers pick up changes within a few seconds.
+
+If the `files-api` service is absent the app still runs — server storage is
+simply disabled. The client can be pointed at a different API base by setting
+`window.__OPENSCAD_FILES_API__` before the bundle loads (default `/api`).
+
+### files-api configuration
+
+| Env | Default | Meaning |
+| --- | --- | --- |
+| `FILES_DIR` | `/data/models` | folder to serve |
+| `PORT` | `8080` | listen port |
+| `ALLOWED_EXT` | `.scad,.json` | extensions exposed (comma-separated) |
+| `MAX_BYTES` | `5242880` | maximum upload size |
+
+Served image: `ghcr.io/<owner>/openscad-files-api`.
+
 ## Building
 
 The project uses a **webpack-based build system** that reads library metadata from `libs-config.json` to automatically download, clone, and package OpenSCAD libraries and dependencies. This replaces the previous Makefile approach with a more standard, maintainable solution.

@@ -35,6 +35,17 @@ export default function EditorPanel({className, style}: {className?: string, sty
 
   const state = model.state;
 
+  const saveToServer = () => {
+    const path = model.state.params.activePath;
+    const existing = model.serverFileFor(path);
+    const name = existing
+      ? undefined
+      : window.prompt('Save as (server file name)', path.split('/').pop() || 'model.scad') || undefined;
+    if (existing || name) {
+      model.saveActiveToServer(name).catch(e => console.error('Save to server failed:', e));
+    }
+  };
+
   const [editor, setEditor] = useState(null as monaco.editor.IStandaloneCodeEditor | null)
 
   if (editor) {
@@ -59,10 +70,10 @@ export default function EditorPanel({className, style}: {className?: string, sty
       run: () => model.render({isPreview: true, now: true})
     });
     editor.addAction({
-      id: "openscad-save-do-nothing",
-      label: "Save (disabled)",
+      id: "openscad-save-to-server",
+      label: "Save to server",
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
-      run: () => {}
+      run: () => saveToServer(),
     });
     editor.addAction({
       id: "openscad-save-project",
@@ -104,10 +115,24 @@ export default function EditorPanel({className, style}: {className?: string, sty
             separator: true
           },  
           {
-            // TODO: popup to ask for file name
             label: "New file",
             icon: 'pi pi-plus',
-            disabled: true,
+            disabled: !model.serverFilesEnabled,
+            command: async () => {
+              const name = window.prompt('New file name', 'model.scad');
+              if (name) await model.createServerFile(name);
+            },
+          },
+          {
+            label: "Delete current file",
+            icon: 'pi pi-trash',
+            disabled: !model.serverFileFor(state.params.activePath),
+            command: async () => {
+              const path = state.params.activePath;
+              if (window.confirm(`Delete ${path} from the server?`)) {
+                await model.deleteServerFile(path);
+              }
+            },
           },
           {
             label: "Copy to new file",
@@ -150,6 +175,13 @@ export default function EditorPanel({className, style}: {className?: string, sty
             style={{
               flex: 1,
             }}/>
+
+        {model.serverFilesEnabled && (
+          <Button
+            title="Save to server (Ctrl+S)"
+            rounded text icon="pi pi-cloud-upload"
+            onClick={saveToServer} />
+        )}
 
         {state.params.activePath !== defaultSourcePath && 
           <Button icon="pi pi-chevron-left" 
