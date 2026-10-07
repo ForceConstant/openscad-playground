@@ -3,10 +3,14 @@ import webpack from 'webpack';
 import WorkboxPlugin from 'workbox-webpack-plugin';
 
 import path, { dirname } from 'path';
+import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+const require = createRequire(import.meta.url);
+const pkg = require('./package.json');
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -81,6 +85,9 @@ const config = [
         // static build stays clean. The Docker image sets SERVER_FILES_API=/api
         // to enable it (see the Dockerfile).
         SERVER_FILES_API: '',
+        // App version, shown in the footer so it's obvious which build is
+        // actually loaded (catching stale-cache situations early).
+        APP_VERSION: pkg.version,
       }),
       ...(process.env.NODE_ENV === 'production' ? [
         new WorkboxPlugin.GenerateSW({

@@ -97,6 +97,18 @@ export default function Footer({style}: {style?: CSSProperties}) {
 
       <div style={{flex: 1}}></div>
 
+      <span
+          title="Loaded build version"
+          style={{
+            fontSize: '0.75rem',
+            opacity: 0.6,
+            alignSelf: 'center',
+            whiteSpace: 'nowrap',
+            marginRight: '0.25rem',
+          }}>
+        v{process.env.APP_VERSION ?? 'dev'}
+      </span>
+
       <SettingsMenu />
 
       <HelpMenu style={{
