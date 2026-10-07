@@ -9,7 +9,9 @@ name: Files API
 # Published as `ghcr.io/<owner>/openscad-files-api`.
 on:
   push:
-    branches: [main]
+    # Every branch so each commit gets its own image (short-SHA tag); `edge`
+    # tracks main only and semver tags come from `v*`.
+    branches: ['**']
     tags:
       - 'v*'
   pull_request:

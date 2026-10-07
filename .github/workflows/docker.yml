@@ -7,7 +7,9 @@ name: Docker
 # Releases are handled separately by `release.yml` (tag-driven).
 on:
   push:
-    branches: [main]
+    # Build on every branch so each commit gets its own image, tagged with the
+    # short commit SHA (`edge` still only tracks main).
+    branches: ['**']
   pull_request:
     paths:
       - 'Dockerfile'
@@ -59,7 +61,7 @@ jobs:
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
-            type=raw,value=edge,enable=${{ github.event_name == 'push' }}
+            type=raw,value=edge,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
             type=sha,format=short,enable=${{ github.event_name == 'push' }}
 
       - name: Build (and push on main)
