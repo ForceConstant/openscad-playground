@@ -18,6 +18,27 @@ function callback(payload: OpenSCADInvocationCallback) {
   self.postMessage(payload);
 }
 
+/** `mkdir -p` for the (native) OpenSCAD FS: create each missing ancestor of a
+ *  file path. Files from the server-side store live at paths like
+ *  `/server/foo.scad`, whose directory does not exist in the freshly created
+ *  FS (only `/` and `/libraries` do), so writing them would otherwise fail with
+ *  "ErrnoError: FS error" during preview/render. */
+function ensureParentDir(fs: any, filePath?: string): void {
+  if (!filePath) return;
+  const dir = filePath.substring(0, filePath.lastIndexOf('/'));
+  if (!dir || dir === '/') return;
+  let cur = '';
+  for (const part of dir.split('/').filter(Boolean)) {
+    cur += `/${part}`;
+    try {
+      fs.mkdir(cur);
+    } catch (e) {
+      // Already exists (EEXIST) or a mounted/read-only parent: ignore. The
+      // write that follows will surface any genuine problem.
+    }
+  }
+}
+
 self.addEventListener('message', async (e: MessageEvent<OpenSCADInvocation>) => {
   const {
     mountArchives,
@@ -93,6 +114,7 @@ self.addEventListener('message', async (e: MessageEvent<OpenSCADInvocation>) => 
               console.error(`File ${source.path} does not exist!`);
             }
           } else {
+            ensureParentDir(instance.FS, source.path);
             instance.FS.writeFile(source.path, await fetchSource(instance.FS, source));
           }
         } catch (e) {
