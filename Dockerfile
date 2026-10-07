@@ -31,7 +31,8 @@ RUN npm install
 # OpenSCAD libraries, then compiles the webpack bundle into ./dist.
 COPY . .
 ENV CI=true \
-    NODE_ENV=production
+    NODE_ENV=production \
+    SERVER_FILES_API=/api
 RUN npm run build:all
 
 # ---------------------------------------------------------------------------

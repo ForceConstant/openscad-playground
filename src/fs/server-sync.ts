@@ -14,10 +14,18 @@ import { join } from './filesystem.ts';
 /** Directory (inside the in-browser FS) where server files are mirrored. */
 export const serverDir = '/server';
 
-/** Base path of the files API, served from the same origin by nginx. Can be
- * overridden by setting `window.__OPENSCAD_FILES_API__` before the bundle loads. */
+/**
+ * Base path of the files API, or '' when the server file store is disabled.
+ *
+ * Enabled at build time via the SERVER_FILES_API env var (the Docker image
+ * sets it to '/api'), or at runtime by setting `window.__OPENSCAD_FILES_API__`
+ * before the bundle loads. When empty the client makes no requests at all, so
+ * a plain static deployment stays error-free.
+ */
 export const filesApiBase: string =
-  (typeof window !== 'undefined' && (window as any).__OPENSCAD_FILES_API__) || '/api';
+  (typeof window !== 'undefined' && (window as any).__OPENSCAD_FILES_API__) ||
+  process.env.SERVER_FILES_API ||
+  '';
 
 export type ServerFile = { name: string; size: number; mtime: number };
 

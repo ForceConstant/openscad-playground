@@ -126,9 +126,10 @@ Then:
 * **New file** / **Delete current file** in the editor menu manage server files;
 * other open browsers pick up changes within a few seconds.
 
-If the `files-api` service is absent the app still runs — server storage is
-simply disabled. The client can be pointed at a different API base by setting
-`window.__OPENSCAD_FILES_API__` before the bundle loads (default `/api`).
+Server storage is enabled at build time with `SERVER_FILES_API=/api` (the
+Docker image sets this). A build without it makes **no** server requests, so a
+plain static deployment stays error-free. It can also be enabled at runtime by
+setting `window.__OPENSCAD_FILES_API__` before the bundle loads.
 
 ### files-api configuration
 

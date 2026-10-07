@@ -70,6 +70,11 @@ const config = [
     plugins: [
       new webpack.EnvironmentPlugin({
         'process.env.NODE_ENV': 'development',
+        // Base path of the server files API. Empty (the default) disables the
+        // server-side file store entirely — no requests are made — so a plain
+        // static build stays clean. The Docker image sets SERVER_FILES_API=/api
+        // to enable it (see the Dockerfile).
+        'process.env.SERVER_FILES_API': '',
       }),
       ...(process.env.NODE_ENV === 'production' ? [
         new WorkboxPlugin.GenerateSW({

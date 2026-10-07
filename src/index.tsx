@@ -4,7 +4,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import {App} from './components/App.tsx';
 import { createEditorFS } from './fs/filesystem.ts';
-import { ServerFileSync } from './fs/server-sync.ts';
+import { ServerFileSync, filesApiBase } from './fs/server-sync.ts';
 import { registerOpenSCADLanguage } from './language/openscad-register-language.ts';
 import { zipArchives } from './fs/zip-archives.ts';
 import {readStateFromFragment} from './state/fragment-state.ts'
@@ -64,14 +64,17 @@ window.addEventListener('load', async () => {
 
   const fs = await createEditorFS({prefix: '/libraries/', allowPersistence: isInStandaloneMode()});
 
-  // Mirror the server-side model folder into the FS. Best-effort: the app is
-  // fully functional without the optional files-api sidecar, in which case the
-  // initial pull fails and we simply run without server storage.
-  const serverSync = new ServerFileSync(fs);
-  try {
-    await serverSync.pull();
-  } catch (e) {
-    console.warn('Server files API unavailable — running without server storage.', e);
+  // Mirror the server-side model folder into the FS. Only when the build (or a
+  // runtime override) enables it, so plain static deployments make no requests.
+  let serverSync: ServerFileSync | undefined;
+  if (filesApiBase) {
+    serverSync = new ServerFileSync(fs);
+    try {
+      await serverSync.pull();
+    } catch (e) {
+      console.warn('Server files API unavailable — running without server storage.', e);
+      serverSync = undefined; // don't poll a sidecar that isn't there
+    }
   }
 
   await registerOpenSCADLanguage(fs, '/', zipArchives);
