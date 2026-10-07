@@ -68,13 +68,19 @@ const config = [
       port: 4000,
     },
     plugins: [
+      // NOTE: EnvironmentPlugin keys must NOT be prefixed with `process.env.`
+      // — it prepends that itself. Passing `'process.env.SERVER_FILES_API'`
+      // would define `process.env.process.env.SERVER_FILES_API`, leaving the
+      // real reference unreplaced and crashing the browser bundle with
+      // "process is not defined". NODE_ENV is also supplied by webpack's
+      // `mode`, but declaring it here keeps the value explicit.
       new webpack.EnvironmentPlugin({
-        'process.env.NODE_ENV': 'development',
+        NODE_ENV: 'development',
         // Base path of the server files API. Empty (the default) disables the
         // server-side file store entirely — no requests are made — so a plain
         // static build stays clean. The Docker image sets SERVER_FILES_API=/api
         // to enable it (see the Dockerfile).
-        'process.env.SERVER_FILES_API': '',
+        SERVER_FILES_API: '',
       }),
       ...(process.env.NODE_ENV === 'production' ? [
         new WorkboxPlugin.GenerateSW({
